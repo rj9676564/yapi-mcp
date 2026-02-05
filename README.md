@@ -50,10 +50,10 @@ Yapi Auto MCP Server 是一个基于 [Model Context Protocol](https://modelconte
 
 ```bash
 # 全局安装
-npm install -g @cjh0/yapi-mcp
+npm install -g @mrlaibin/yapi-mcp
 
 # 或者使用 pnpm
-pnpm add -g @cjh0/yapi-mcp
+pnpm add -g @mrlaibin/yapi-mcp
 ```
 
 **方式二：使用 npx（无需安装）**
@@ -86,7 +86,7 @@ pnpm add -g @cjh0/yapi-mcp
       "command": "npx",
       "args": [
         "-y",
-        "@cjh0/yapi-mcp",
+        "@mrlaibin/yapi-mcp",
         "--stdio",
         "--yapi-base-url=https://your-yapi-domain.com",
         "--yapi-token=projectId:your_token_here"
@@ -111,7 +111,7 @@ pnpm add -g @cjh0/yapi-mcp
       "command": "npx",
       "args": [
         "-y",
-        "@cjh0/yapi-mcp",
+        "mrlaibin/yapi-mcp",
         "--stdio"
       ],
       "env": {

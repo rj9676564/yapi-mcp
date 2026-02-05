@@ -1,5 +1,5 @@
 {
-  "name": "@cjh0/yapi-mcp",
+  "name": "@mrlaibin/yapi-mcp",
   "version": "1.0.1",
   "description": "YApi Auto MCP Server - Model Context Protocol server for YApi integration, enables AI tools like Cursor to interact with YApi API documentation",
   "main": "dist/index.js",
