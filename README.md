@@ -111,7 +111,7 @@ pnpm add -g @mrlaibin/yapi-mcp
       "command": "npx",
       "args": [
         "-y",
-        "mrlaibin/yapi-mcp",
+        "@mrlaibin/yapi-mcp",
         "--stdio"
       ],
       "env": {
