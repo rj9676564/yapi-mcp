@@ -133,6 +133,51 @@
         </div>
 
         <div class="tool-section">
+            <h3>🗂️ 获取分类与接口 (yapi_get_categories)</h3>
+            <div class="form-group">
+                <label for="cats-project">项目ID:</label>
+                <input type="text" id="cats-project" value="123" placeholder="项目ID">
+            </div>
+            <button onclick="getCategories()">🗂️ 获取分类列表</button>
+            <div id="cats-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="tool-section">
+            <h3>💾 新增/更新接口 (yapi_save_api)</h3>
+            <div class="form-group">
+                <label for="save-project">项目ID:</label>
+                <input type="text" id="save-project" value="123" placeholder="项目ID">
+            </div>
+            <div class="form-group">
+                <label for="save-catid">分类ID:</label>
+                <input type="text" id="save-catid" placeholder="分类ID">
+            </div>
+            <div class="form-group">
+                <label for="save-title">接口标题:</label>
+                <input type="text" id="save-title" placeholder="接口标题">
+            </div>
+            <div class="form-group">
+                <label for="save-path">接口路径:</label>
+                <input type="text" id="save-path" placeholder="/api/example">
+            </div>
+            <div class="form-group">
+                <label for="save-method">请求方法:</label>
+                <select id="save-method" style="width: 100%; padding: 8px; border-radius: 4px; border: 1px solid #ddd;">
+                    <option value="GET">GET</option>
+                    <option value="POST">POST</option>
+                    <option value="PUT">PUT</option>
+                    <option value="DELETE">DELETE</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="save-id">接口ID (更新时填):</label>
+                <input type="text" id="save-id" placeholder="留空则为新增">
+            </div>
+            <button onclick="saveApi()">💾 保存接口</button>
+            <div id="save-result" class="result" style="display: none;"></div>
+        </div>
+
+        <div class="tool-section">
             <h3>📝 按接口名称搜索 (yapi_search_by_name)</h3>
             <div class="form-group">
                 <label for="search-by-name-keyword">接口名称关键字（必填）:</label>
@@ -154,7 +199,7 @@
             <h3>🔗 按接口路径搜索 (yapi_search_by_path)</h3>
             <div class="form-group">
                 <label for="search-by-path-keyword">接口路径关键字（必填）:</label>
-                <input type="text" id="search-by-path-keyword" value="/tutoring" placeholder="输入接口路径关键字">
+                <input type="text" id="search-by-path-keyword" value="/api" placeholder="输入接口路径关键字">
             </div>
             <div class="form-group">
                 <label for="search-by-path-project">项目关键字（可选）:</label>
@@ -170,7 +215,7 @@
     </div>
 
     <script>
-        const SERVER_URL = 'http://localhost:3390';
+        const SERVER_URL = 'http://localhost:3388';
 
         // 添加复制按钮到结果区域
         function addCopyButton(resultDiv, jsonData) {
@@ -325,6 +370,70 @@
             } catch (error) {
                 resultDiv.className = 'result error';
                 resultDiv.textContent = `❌ 按名称搜索失败: ${error.message}`;
+            }
+        }
+
+        async function getCategories() {
+            const resultDiv = document.getElementById('cats-result');
+            const projectId = document.getElementById('cats-project').value.trim();
+
+            if (!projectId) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ 请输入项目ID';
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = '🔄 获取分类列表中...';
+
+            try {
+                const result = await callMcpTool('yapi_get_categories', { projectId });
+
+                const jsonText = JSON.stringify(result.data, null, 2);
+                resultDiv.className = 'result success';
+                resultDiv.textContent = jsonText;
+                addCopyButton(resultDiv, jsonText);
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 获取失败: ${error.message}`;
+            }
+        }
+
+        async function saveApi() {
+            const resultDiv = document.getElementById('save-result');
+            const projectId = document.getElementById('save-project').value.trim();
+            const catid = document.getElementById('save-catid').value.trim();
+            const title = document.getElementById('save-title').value.trim();
+            const path = document.getElementById('save-path').value.trim();
+            const method = document.getElementById('save-method').value;
+            const id = document.getElementById('save-id').value.trim();
+
+            if (!projectId || !catid || !title || !path) {
+                resultDiv.style.display = 'block';
+                resultDiv.className = 'result error';
+                resultDiv.textContent = '❌ 请填写必填字段 (项目ID, 分类ID, 标题, 路径)';
+                return;
+            }
+
+            resultDiv.style.display = 'block';
+            resultDiv.className = 'result loading';
+            resultDiv.textContent = '🔄 保存接口中...';
+
+            try {
+                const args = { projectId, catid, title, path, method };
+                if (id) args.id = id;
+
+                const result = await callMcpTool('yapi_save_api', args);
+
+                const jsonText = JSON.stringify(result.data, null, 2);
+                resultDiv.className = 'result success';
+                resultDiv.textContent = jsonText;
+                addCopyButton(resultDiv, jsonText);
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.textContent = `❌ 保存失败: ${error.message}`;
             }
         }
 

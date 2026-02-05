@@ -14,7 +14,8 @@ export enum LogLevel {
  * @param level 日志级别字符串
  * @returns LogLevel 枚举值
  */
-function getLogLevel(level: string): LogLevel {
+function getLogLevel(level: any): LogLevel {
+  if (!level || typeof level !== 'string') return LogLevel.INFO;
   switch (level.toLowerCase()) {
     case 'debug':
       return LogLevel.DEBUG;
@@ -53,9 +54,8 @@ export class Logger {
    */
   debug(message: string, ...args: any[]): void {
     if (this.logLevel <= LogLevel.DEBUG) {
-      // 在stdio模式下使用console.warn避免干扰协议通信
-      const logMethod = this.isStdioMode ? console.warn : console.log;
-      logMethod(`[DEBUG][${this.prefix}] ${message}`, ...args);
+      // 始终使用 console.warn (stderr) 避免干扰 stdio 协议
+      console.warn(`[DEBUG][${this.prefix}] ${message}`, ...args);
     }
   }
   
@@ -66,9 +66,8 @@ export class Logger {
    */
   info(message: string, ...args: any[]): void {
     if (this.logLevel <= LogLevel.INFO) {
-      // 在stdio模式下使用console.warn避免干扰协议通信
-      const logMethod = this.isStdioMode ? console.warn : console.log;
-      logMethod(`[INFO][${this.prefix}] ${message}`, ...args);
+      // 始终使用 console.warn (stderr) 避免干扰 stdio 协议
+      console.warn(`[INFO][${this.prefix}] ${message}`, ...args);
     }
   }
   

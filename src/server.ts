@@ -188,6 +188,7 @@ export class YapiMcpServer {
 
     if (error instanceof Error) {
       errorMsg += `: ${error.message}`;
+      this.logger.error(`${operation} Stack Trace:`, error.stack);
     } else if (typeof error === 'object' && error !== null) {
       errorMsg += `: ${JSON.stringify(error)}`;
     }
@@ -609,7 +610,7 @@ export class YapiMcpServer {
     app.use((req: any, res: any, next: any) => {
       res.header('Access-Control-Allow-Origin', '*');
       res.header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+      res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, x-mcp-proxy-auth');
       if (req.method === 'OPTIONS') {
         res.sendStatus(200);
       } else {
@@ -619,6 +620,11 @@ export class YapiMcpServer {
 
     // 添加JSON解析器
     app.use(express.json());
+
+    // 添加健康检查接口
+    app.get("/health", (_req: any, res: any) => {
+      res.json({ status: "ok", timestamp: new Date().toISOString() });
+    });
 
     // 添加简化的调试API端点
     app.post("/api/debug", async (req: any, res: any) => {
@@ -693,6 +699,59 @@ export class YapiMcpServer {
             });
             result = { projects, count: projects.length };
             break;
+          case 'yapi_get_categories':
+            if (!args?.projectId) {
+              return res.status(400).json({ error: "Missing projectId" });
+            }
+            // Fetch project info
+            const projInfo = this.yapiService.getProjectInfoCache().get(args.projectId);
+            const cats = this.yapiService.getCategoryListCache().get(args.projectId) || [];
+            
+            const catsWithApis = await Promise.all(cats.map(async (cat: any) => {
+              const apis = await this.yapiService.getCategoryApis(args.projectId, cat._id);
+              return {
+                分类ID: cat._id,
+                分类名称: cat.name,
+                接口列表: apis?.map((api: any) => ({
+                  接口ID: api._id,
+                  接口名称: api.title,
+                  接口路径: api.path,
+                  请求方法: api.method
+                })) || []
+              };
+            }));
+            result = {
+              projectName: projInfo?.name || args.projectId,
+              categories: catsWithApis
+            };
+            break;
+          case 'yapi_save_api':
+            if (!args?.projectId || !args?.catid || !args?.title || !args?.path || !args?.method) {
+              return res.status(400).json({ error: "Missing required fields for yapi_save_api" });
+            }
+            // Process tags and other JSON fields if they are strings
+            if (args.tag && typeof args.tag === 'string') {
+              try { args.tag = JSON.parse(args.tag); } catch (e) { /* ignore */ }
+            }
+            if (args.req_params && typeof args.req_params === 'string') {
+              try { args.req_params = JSON.parse(args.req_params); } catch (e) { /* ignore */ }
+            }
+            if (args.req_query && typeof args.req_query === 'string') {
+              try { args.req_query = JSON.parse(args.req_query); } catch (e) { /* ignore */ }
+            }
+            if (args.req_headers && typeof args.req_headers === 'string') {
+              try { args.req_headers = JSON.parse(args.req_headers); } catch (e) { /* ignore */ }
+            }
+            if (args.req_body_form && typeof args.req_body_form === 'string') {
+              try { args.req_body_form = JSON.parse(args.req_body_form); } catch (e) { /* ignore */ }
+            }
+            
+            const saveParams = {
+              project_id: args.projectId,
+              ...args
+            };
+            result = await this.yapiService.saveInterface(saveParams);
+            break;
           default:
             return res.status(400).json({ error: `Unknown tool: ${tool}` });
         }
@@ -733,6 +792,24 @@ export class YapiMcpServer {
       this.logger.info(`HTTP服务器监听端口 ${port}`);
       this.logger.info(`SSE端点: http://localhost:${port}/sse`);
       this.logger.info(`消息端点: http://localhost:${port}/messages`);
+    });
+
+    // 处理 404
+    app.use((_req: any, res: any) => {
+      res.status(404).json({
+        success: false,
+        error: "Not Found",
+        path: _req.path
+      });
+    });
+
+    // 全局错误处理
+    app.use((err: any, _req: any, res: any, _next: any) => {
+      this.logger.error(`HTTP 服务器错误:`, err);
+      res.status(500).json({
+        success: false,
+        error: err instanceof Error ? err.message : String(err)
+      });
     });
   }
 }

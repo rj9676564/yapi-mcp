@@ -384,26 +384,36 @@ export class YApiService {
     const pathKeywords = Array.isArray(pathKeyword) ? pathKeyword : pathKeyword ? [pathKeyword] : [];
     const tagKeywords = Array.isArray(tagKeyword) ? tagKeyword : tagKeyword ? [tagKeyword] : [];
     
-    this.logger.debug(
-      `搜索接口 项目关键字: ${projectKeyword || '无'}, ` +
-      `接口名称关键字: ${nameKeywords.join(',')} ` +
-      `路径关键字: ${pathKeywords.join(',')} ` +
-      `标签关键字: ${tagKeywords.join(',')}`
+    this.logger.info(
+      `搜索各项目接口 - 项目关键字: "${projectKeyword || ''}", ` +
+      `名称关键字: [${nameKeywords.join(', ')}], ` +
+      `路径关键字: [${pathKeywords.join(', ')}], ` +
+      `标签关键字: [${tagKeywords.join(', ')}]`
     );
     
     try {
       // 1. 获取所有项目信息（或根据关键字过滤）
       await this.loadAllProjectInfo();
-      let projects = Array.from(this.projectInfoCache.values());
+      let projects = Array.from(this.projectInfoCache.values()).filter(p => !!p);
       
       // 如果指定了项目关键字，过滤项目列表
-      if (projectKeyword && projectKeyword.trim().length > 0) {
+      if (projectKeyword && typeof projectKeyword === 'string' && projectKeyword.trim().length > 0) {
         const keyword = projectKeyword.trim().toLowerCase();
-        projects = projects.filter(project => 
-          project.name.toLowerCase().includes(keyword) || 
-          project.desc.toLowerCase().includes(keyword) ||
-          String(project._id).includes(keyword)
-        );
+        projects = projects.filter(project => {
+          if (!project) return false;
+          try {
+            const name = typeof project.name === 'string' ? project.name.toLowerCase() : '';
+            const desc = typeof project.desc === 'string' ? project.desc.toLowerCase() : '';
+            const id = String(project._id || '');
+            
+            return name.includes(keyword) || 
+                   desc.includes(keyword) ||
+                   id.includes(keyword);
+          } catch (e) {
+            this.logger.error(`过滤项目异常 (ID: ${project?._id}):`, e);
+            return false;
+          }
+        });
       }
       
       // 限制只搜索前几个匹配的项目
@@ -490,8 +500,16 @@ export class YApiService {
         total: deduplicated.length,
         list: limitedResults
       };
-    } catch (error) {
+    } catch (error: any) {
       this.logger.error('搜索接口失败:', error);
+      if (error instanceof TypeError && error.message.includes('toLowerCase')) {
+        this.logger.error('检测到 toLowerCase 错误，具体参数:', {
+          projectKeyword,
+          nameKeyword,
+          pathKeyword,
+          tagKeyword
+        });
+      }
       throw error;
     }
   }
@@ -506,6 +524,18 @@ export class YApiService {
     limit: number
   ): Promise<{ total: number; list: any[] }> {
     try {
+      // 预检查 queryParams
+      if (queryParams.keyword && typeof queryParams.keyword !== 'string') {
+        this.logger.warn(`searchWithSingleKeyword: keyword 不是字符串, 值为: ${typeof queryParams.keyword}`);
+        queryParams.keyword = String(queryParams.keyword);
+      }
+      if (queryParams.path && typeof queryParams.path !== 'string') {
+        this.logger.warn(`searchWithSingleKeyword: path 不是字符串, 值为: ${typeof queryParams.path}`);
+        queryParams.path = String(queryParams.path);
+      }
+      if (queryParams.tag && Array.isArray(queryParams.tag)) {
+        queryParams.tag = queryParams.tag.filter(t => t !== undefined && t !== null).map(String);
+      }
       // 使用菜单API获取完整接口数据
       const menuData = await this.getInterfaceMenu(projectId);
 
@@ -528,31 +558,46 @@ export class YApiService {
 
       // 按接口名称关键字过滤
       if (queryParams.keyword) {
-        const keyword = queryParams.keyword.toLowerCase();
-        filteredResults = filteredResults.filter(item =>
-          item.title && item.title.toLowerCase().includes(keyword)
-        );
+        try {
+          const keyword = String(queryParams.keyword).toLowerCase();
+          filteredResults = filteredResults.filter(item =>
+            item.title && typeof item.title === 'string' && item.title.toLowerCase().includes(keyword)
+          );
+        } catch (e) {
+          this.logger.error('名称过滤异常:', e);
+        }
       }
 
       // 按接口路径关键字过滤
       if (queryParams.path) {
-        const pathKeyword = queryParams.path.toLowerCase();
-        filteredResults = filteredResults.filter(item =>
-          item.path && item.path.toLowerCase().includes(pathKeyword)
-        );
+        try {
+          const pathKeyword = String(queryParams.path).toLowerCase();
+          filteredResults = filteredResults.filter(item =>
+            item.path && typeof item.path === 'string' && item.path.toLowerCase().includes(pathKeyword)
+          );
+        } catch (e) {
+          this.logger.error('路径过滤异常:', e);
+        }
       }
 
       // 按标签关键字过滤
-      if (queryParams.tag && queryParams.tag.length > 0) {
-        const tagKeywords = queryParams.tag.map(t => t.toLowerCase());
-        filteredResults = filteredResults.filter(item => {
-          if (!item.tag || !Array.isArray(item.tag)) return false;
-          return item.tag.some((tag: any) =>
-            tagKeywords.some(keyword =>
-              String(tag).toLowerCase().includes(keyword)
-            )
-          );
-        });
+      if (queryParams.tag && Array.isArray(queryParams.tag) && queryParams.tag.length > 0) {
+        try {
+          const tagKeywords = queryParams.tag
+            .filter(t => t !== undefined && t !== null)
+            .map(t => String(t).toLowerCase());
+            
+          filteredResults = filteredResults.filter(item => {
+            if (!item.tag || !Array.isArray(item.tag)) return false;
+            return item.tag.some((tag: any) =>
+              tagKeywords.some(keyword =>
+                tag && String(tag).toLowerCase().includes(keyword)
+              )
+            );
+          });
+        } catch (e) {
+          this.logger.error('标签过滤异常:', e);
+        }
       }
 
       // 按ID降序排序，优先显示最新接口

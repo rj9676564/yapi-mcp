@@ -122,9 +122,9 @@ export function getServerConfig(): ServerConfig {
   if (argv["yapi-log-level"]) {
     config.yapiLogLevel = argv["yapi-log-level"];
     config.configSources.yapiLogLevel = "cli";
-  } else if (process.env.YAPI_LOG_LEVEL) {
+  } else if (process.env.YAPI_LOG_LEVEL && typeof process.env.YAPI_LOG_LEVEL === 'string') {
     const validLevels = ["debug", "info", "warn", "error"];
-    const logLevel = process.env.YAPI_LOG_LEVEL.toLowerCase();
+    const logLevel = process.env.YAPI_LOG_LEVEL.trim().toLowerCase();
     if (validLevels.includes(logLevel)) {
       config.yapiLogLevel = logLevel;
       config.configSources.yapiLogLevel = "env";
